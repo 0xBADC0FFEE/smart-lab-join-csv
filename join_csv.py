@@ -5,6 +5,7 @@ import re
 import os
 import requests
 from collections import OrderedDict
+from datetime import datetime
 
 
 def is_year_column(col_name):
@@ -39,6 +40,27 @@ def clean_value(value):
         
         return value
     return value
+
+
+def convert_date_format(date_str):
+    """Convert date from dd.mm.yyyy to yyyy-mm-dd format"""
+    if not isinstance(date_str, str):
+        return date_str
+    
+    # Check if the string is a date in dd.mm.yyyy format
+    date_pattern = re.compile(r'(\d{2})\.(\d{2})\.(\d{4})')
+    match = date_pattern.match(date_str)
+    
+    if match:
+        day, month, year = match.groups()
+        try:
+            # Parse and format the date
+            return f"{year}-{month}-{day}"
+        except ValueError:
+            # Return original if it's not a valid date
+            return date_str
+    
+    return date_str
 
 
 def rename_metrics(df):
@@ -176,6 +198,10 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     # Apply the cleaning function to each cell in the DataFrame
     for col in result_df.columns:
         result_df[col] = result_df[col].apply(clean_value)
+    
+    # Convert dates in "Дата отчета" row to yyyy-mm-dd format
+    if "Дата отчета" in result_df.index:
+        result_df.loc["Дата отчета"] = result_df.loc["Дата отчета"].apply(convert_date_format)
     
     # Rename specific metrics
     result_df = rename_metrics(result_df)

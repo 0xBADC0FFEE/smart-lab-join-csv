@@ -15,6 +15,7 @@ The utility merges metrics from both sources, adding empty cells where data is m
 - If a year has multiple quarters (e.g., Q1, Q2, Q3, and Q4), all quarters including Q4 are preserved.
 - Spaces are automatically removed from all data values, but headers and row names are preserved as-is.
 - Comma decimal separators in numeric values (e.g., "0,08") are replaced with dots (e.g., "0.08").
+- Dates in the "Дата отчета" row are converted from dd.mm.yyyy to yyyy-mm-dd format.
 - Certain metric names are shortened or standardized for clarity (see Metric Name Changes below).
 
 ## Metric Name Changes
@@ -92,5 +93,6 @@ The output TSV file will:
 - Skip Q4 columns when they are the only quarter for a year in quarterly data and that year exists in annual data
 - Remove all spaces from data values while preserving column headers and row names
 - Convert decimal commas to decimal dots in numeric values
+- Convert dates from dd.mm.yyyy to yyyy-mm-dd format in the "Дата отчета" row
 - Rename certain metrics according to the mapping table above
 - End with the LTM column if it exists in the annual data 
