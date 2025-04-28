@@ -2,6 +2,8 @@
 import pandas as pd
 import argparse
 import re
+import os
+import requests
 from collections import OrderedDict
 
 
@@ -37,6 +39,34 @@ def clean_value(value):
         
         return value
     return value
+
+
+def download_data(ticker):
+    """Download annual and quarterly data for a given ticker"""
+    annual_url = f"https://smart-lab.ru/q/{ticker}/f/y/MSFO/download/"
+    quarterly_url = f"https://smart-lab.ru/q/{ticker}/f/q/MSFO/download/"
+    
+    print(f"Downloading annual data from {annual_url}")
+    annual_response = requests.get(annual_url)
+    if annual_response.status_code != 200:
+        raise Exception(f"Failed to download annual data: HTTP {annual_response.status_code}")
+    
+    print(f"Downloading quarterly data from {quarterly_url}")
+    quarterly_response = requests.get(quarterly_url)
+    if quarterly_response.status_code != 200:
+        raise Exception(f"Failed to download quarterly data: HTTP {quarterly_response.status_code}")
+    
+    # Save downloaded data to temporary files
+    annual_path = f"{ticker}_annual.csv"
+    quarterly_path = f"{ticker}_quarterly.csv"
+    
+    with open(annual_path, 'w', encoding='utf-8') as f:
+        f.write(annual_response.text)
+    
+    with open(quarterly_path, 'w', encoding='utf-8') as f:
+        f.write(quarterly_response.text)
+    
+    return annual_path, quarterly_path
 
 
 def join_csv_files(annual_path, quarterly_path, output_path):
@@ -130,16 +160,56 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     print(f"Joined data saved to {output_path}")
 
 
+def cleanup_temp_files(annual_path, quarterly_path):
+    """Clean up temporary downloaded files"""
+    try:
+        if os.path.exists(annual_path):
+            os.remove(annual_path)
+        if os.path.exists(quarterly_path):
+            os.remove(quarterly_path)
+    except Exception as e:
+        print(f"Warning: Failed to clean up temporary files: {e}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Join annual and quarterly CSV files.')
-    parser.add_argument('annual', help='Path to the annual CSV file')
-    parser.add_argument('quarterly', help='Path to the quarterly CSV file')
+    parser = argparse.ArgumentParser(description='Join annual and quarterly financial metrics for a ticker.')
+    
+    # Define mutually exclusive group for input source
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument('--ticker', help='Ticker symbol to download data for (e.g., MGKL)')
+    input_group.add_argument('--files', nargs=2, metavar=('ANNUAL_CSV', 'QUARTERLY_CSV'),
+                           help='Paths to local annual and quarterly CSV files')
+    
     parser.add_argument('output', help='Path to the output TSV file')
     
     args = parser.parse_args()
     
-    join_csv_files(args.annual, args.quarterly, args.output)
+    try:
+        if args.ticker:
+            # Download data from the internet
+            annual_path, quarterly_path = download_data(args.ticker)
+            temp_files_created = True
+        else:
+            # Use local files
+            annual_path, quarterly_path = args.files
+            temp_files_created = False
+        
+        # Process the files
+        join_csv_files(annual_path, quarterly_path, args.output)
+        
+        # Clean up temporary files if they were created
+        if temp_files_created:
+            cleanup_temp_files(annual_path, quarterly_path)
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        # Clean up any temporary files in case of error
+        if 'annual_path' in locals() and 'quarterly_path' in locals() and temp_files_created:
+            cleanup_temp_files(annual_path, quarterly_path)
+        return 1
+    
+    return 0
 
 
 if __name__ == '__main__':
-    main() 
+    exit(main()) 

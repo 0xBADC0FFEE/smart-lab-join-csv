@@ -4,11 +4,11 @@ A CLI utility to join annual and quarterly financial metrics CSV files and outpu
 
 ## Description
 
-This utility joins two CSV files containing financial metrics into a single TSV file:
-- `annual.csv`: Contains annual financial data with column headers as years (e.g., 2022)
-- `quarterly.csv`: Contains quarterly financial data with column headers in format YYYYQN (e.g., 2022Q4)
+This utility joins financial metrics data from annual and quarterly sources into a single TSV file. It can either:
+- Download data directly from smart-lab.ru using a ticker symbol
+- Process local CSV files that you already have
 
-The utility merges metrics from both files, adding empty cells where data is missing. The output file arranges columns chronologically, with each year column placed after its corresponding Q4 column. LTM (Last Twelve Months) column is added at the end. The original row order from the source files is preserved.
+The utility merges metrics from both sources, adding empty cells where data is missing. The output file arranges columns chronologically, with each year column placed after its corresponding Q4 column. LTM (Last Twelve Months) column is added at the end. The original row order from the source files is preserved.
 
 ## Special Handling Rules
 
@@ -22,6 +22,7 @@ The utility merges metrics from both files, adding empty cells where data is mis
 
 - Python 3.6+
 - pandas
+- requests
 
 ## Installation
 
@@ -41,13 +42,25 @@ The utility merges metrics from both files, adding empty cells where data is mis
      ```
 4. Install dependencies:
    ```
-   pip install pandas
+   pip install -r requirements.txt
    ```
 
 ## Usage
 
+### Download data from smart-lab.ru
+
 ```
-python join_csv.py annual.csv quarterly.csv output.tsv
+python join_csv.py --ticker MGKL output.tsv
+```
+
+This will download annual and quarterly data for the MGKL ticker from:
+- Annual data: https://smart-lab.ru/q/MGKL/f/y/MSFO/download/
+- Quarterly data: https://smart-lab.ru/q/MGKL/f/q/MSFO/download/
+
+### Use local CSV files
+
+```
+python join_csv.py --files annual.csv quarterly.csv output.tsv
 ```
 
 Where:
