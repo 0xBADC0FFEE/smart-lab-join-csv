@@ -6,7 +6,7 @@ A CLI utility to join annual and quarterly financial metrics for a ticker symbol
 
 This utility downloads financial metrics data for a specific ticker from smart-lab.ru, combines the annual and quarterly data, and outputs a single TSV file. The output file is automatically named after the ticker and reporting standard (e.g., MGKL_МСФО.tsv).
 
-The utility supports both МСФО (IFRS) and РСБУ (RAS) reporting standards, allowing you to choose which type of financial data to download and process.
+The utility supports both МСФО (IFRS) and РСБУ (RAS) reporting standards, allowing you to choose which type of financial data to download and process. You can specify the standard using either Cyrillic (МСФО, РСБУ) or Latin (MSFO, RSBU) names.
 
 The utility merges metrics from both sources, adding empty cells where data is missing. The output file arranges columns chronologically, with each year column placed after its corresponding Q4 column. LTM (Last Twelve Months) column is added at the end. The original row order from the source files is preserved.
 
@@ -86,9 +86,21 @@ OR
 python join_csv.py TICKER --standard РСБУ
 ```
 
+You can also use Latin letters for the standards:
+
+```
+python join_csv.py TICKER --standard MSFO
+```
+
+OR
+
+```
+python join_csv.py TICKER --standard RSBU
+```
+
 Where:
 - `TICKER` is the ticker symbol (e.g., MGKL)
-- `--standard` specifies the reporting standard to use (МСФО or РСБУ)
+- `--standard` specifies the reporting standard to use (МСФО/MSFO or РСБУ/RSBU)
 
 If `--standard` is not specified, МСФО is used by default.
 
