@@ -16,6 +16,7 @@ The utility merges metrics from both files, adding empty cells where data is mis
 - Q1, Q2, Q3 quarters are always preserved.
 - If a year has multiple quarters (e.g., Q1, Q2, Q3, and Q4), all quarters including Q4 are preserved.
 - Spaces are automatically removed from all data values, but headers and row names are preserved as-is.
+- Comma decimal separators in numeric values (e.g., "0,08") are replaced with dots (e.g., "0.08").
 
 ## Requirements
 
@@ -76,4 +77,5 @@ The output TSV file will:
 - Order columns chronologically, with year columns placed after Q4 columns
 - Skip Q4 columns when they are the only quarter for a year in quarterly.csv and that year exists in annual.csv
 - Remove all spaces from data values while preserving column headers and row names
+- Convert decimal commas to decimal dots in numeric values
 - End with the LTM column if it exists in the annual data 

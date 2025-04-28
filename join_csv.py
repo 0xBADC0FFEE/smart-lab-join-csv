@@ -23,10 +23,19 @@ def get_year_from_quarter(quarter_col):
     return None
 
 
-def remove_spaces(value):
-    """Remove spaces from a value, if it's a string"""
+def clean_value(value):
+    """Clean a value by removing spaces and replacing comma decimal separators with dots"""
     if isinstance(value, str):
-        return value.replace(" ", "")
+        # First remove spaces
+        value = value.replace(" ", "")
+        
+        # Then replace comma decimal separator with dot
+        # We need to check if the string contains a comma followed by digits
+        # to avoid replacing commas in non-numeric contexts
+        if re.search(r'\d+,\d+', value):
+            value = value.replace(",", ".")
+        
+        return value
     return value
 
 
@@ -111,10 +120,10 @@ def join_csv_files(annual_path, quarterly_path, output_path):
             # This is a quarter column from quarterly data
             result_df[col] = quarterly_df[col]
     
-    # Remove spaces from values but keep headers untouched
-    # Apply the space removal function to each cell in the DataFrame
+    # Clean values (remove spaces and replace comma decimal separators with dots)
+    # Apply the cleaning function to each cell in the DataFrame
     for col in result_df.columns:
-        result_df[col] = result_df[col].apply(remove_spaces)
+        result_df[col] = result_df[col].apply(clean_value)
     
     # Save the result to a TSV file
     result_df.to_csv(output_path, sep='\t')
