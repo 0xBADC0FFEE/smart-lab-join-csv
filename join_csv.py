@@ -85,24 +85,36 @@ def rename_metrics(df):
     return df
 
 
-def download_data(ticker):
-    """Download annual and quarterly data for a given ticker"""
-    annual_url = f"https://smart-lab.ru/q/{ticker}/f/y/MSFO/download/"
-    quarterly_url = f"https://smart-lab.ru/q/{ticker}/f/q/MSFO/download/"
+def download_data(ticker, standard="MSFO"):
+    """
+    Download annual and quarterly data for a given ticker
     
-    print(f"Downloading annual data from {annual_url}")
+    Args:
+        ticker (str): The ticker symbol to download data for
+        standard (str): The reporting standard, either "MSFO" (IFRS) or "RSBU" (RAS)
+    """
+    # Validate and normalize the standard parameter
+    if standard.upper() not in ["MSFO", "RSBU"]:
+        raise ValueError("Standard must be either 'MSFO' or 'RSBU'")
+    
+    standard = standard.upper()
+    
+    annual_url = f"https://smart-lab.ru/q/{ticker}/f/y/{standard}/download/"
+    quarterly_url = f"https://smart-lab.ru/q/{ticker}/f/q/{standard}/download/"
+    
+    print(f"Downloading {standard} annual data from {annual_url}")
     annual_response = requests.get(annual_url)
     if annual_response.status_code != 200:
         raise Exception(f"Failed to download annual data: HTTP {annual_response.status_code}")
     
-    print(f"Downloading quarterly data from {quarterly_url}")
+    print(f"Downloading {standard} quarterly data from {quarterly_url}")
     quarterly_response = requests.get(quarterly_url)
     if quarterly_response.status_code != 200:
         raise Exception(f"Failed to download quarterly data: HTTP {quarterly_response.status_code}")
     
     # Save downloaded data to temporary files
-    annual_path = f"{ticker}_annual.csv"
-    quarterly_path = f"{ticker}_quarterly.csv"
+    annual_path = f"{ticker}_{standard}_annual.csv"
+    quarterly_path = f"{ticker}_{standard}_quarterly.csv"
     
     with open(annual_path, 'w', encoding='utf-8') as f:
         f.write(annual_response.text)
@@ -225,15 +237,26 @@ def cleanup_temp_files(annual_path, quarterly_path):
 def main():
     parser = argparse.ArgumentParser(description='Join annual and quarterly financial metrics for a ticker.')
     parser.add_argument('ticker', help='Ticker symbol to download data for (e.g., MGKL)')
+    parser.add_argument('--standard', choices=['МСФО', 'РСБУ'], default='МСФО',
+                      help='Reporting standard to use: МСФО (IFRS) or РСБУ (RAS). Default is МСФО.')
     
     args = parser.parse_args()
     
-    # Use ticker as output filename
-    output_path = f"{args.ticker}.tsv"
+    # Map Russian standard names to API parameter values
+    standard_map = {
+        'МСФО': 'MSFO',
+        'РСБУ': 'RSBU'
+    }
+    
+    # Get the API parameter value for the selected standard
+    standard = standard_map[args.standard]
+    
+    # Use ticker and standard for output filename
+    output_path = f"{args.ticker}_{args.standard}.tsv"
     
     try:
         # Download data from the internet
-        annual_path, quarterly_path = download_data(args.ticker)
+        annual_path, quarterly_path = download_data(args.ticker, standard)
         
         # Process the files
         join_csv_files(annual_path, quarterly_path, output_path)

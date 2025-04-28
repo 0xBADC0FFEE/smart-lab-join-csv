@@ -4,7 +4,9 @@ A CLI utility to join annual and quarterly financial metrics for a ticker symbol
 
 ## Description
 
-This utility downloads financial metrics data for a specific ticker from smart-lab.ru, combines the annual and quarterly data, and outputs a single TSV file. The output file is automatically named after the ticker (e.g., MGKL.tsv).
+This utility downloads financial metrics data for a specific ticker from smart-lab.ru, combines the annual and quarterly data, and outputs a single TSV file. The output file is automatically named after the ticker and reporting standard (e.g., MGKL_МСФО.tsv).
+
+The utility supports both МСФО (IFRS) and РСБУ (RAS) reporting standards, allowing you to choose which type of financial data to download and process.
 
 The utility merges metrics from both sources, adding empty cells where data is missing. The output file arranges columns chronologically, with each year column placed after its corresponding Q4 column. LTM (Last Twelve Months) column is added at the end. The original row order from the source files is preserved.
 
@@ -64,24 +66,43 @@ The following metric names are transformed in the output:
 
 ## Usage
 
+### Basic Usage
+
 ```
 python join_csv.py TICKER
 ```
 
-Where `TICKER` is the ticker symbol (e.g., MGKL).
+This will download МСФО (IFRS) data for the specified ticker.
 
-The utility will:
-1. Download annual data from https://smart-lab.ru/q/TICKER/f/y/MSFO/download/
-2. Download quarterly data from https://smart-lab.ru/q/TICKER/f/q/MSFO/download/
-3. Process and join the data
-4. Output the result to `TICKER.tsv`
-5. Clean up temporary files
+### Specifying Reporting Standard
 
-## Data Source
+```
+python join_csv.py TICKER --standard МСФО
+```
+
+OR
+
+```
+python join_csv.py TICKER --standard РСБУ
+```
+
+Where:
+- `TICKER` is the ticker symbol (e.g., MGKL)
+- `--standard` specifies the reporting standard to use (МСФО or РСБУ)
+
+If `--standard` is not specified, МСФО is used by default.
+
+## Data Sources
 
 Data is downloaded from:
+
+For МСФО (IFRS):
 - Annual data: https://smart-lab.ru/q/TICKER/f/y/MSFO/download/
 - Quarterly data: https://smart-lab.ru/q/TICKER/f/q/MSFO/download/
+
+For РСБУ (RAS):
+- Annual data: https://smart-lab.ru/q/TICKER/f/y/RSBU/download/
+- Quarterly data: https://smart-lab.ru/q/TICKER/f/q/RSBU/download/
 
 ## Output Format
 

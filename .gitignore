@@ -3,8 +3,10 @@ venv/
 
 # Generated output files
 *.tsv
-*_annual.csv
-*_quarterly.csv
+*_MSFO_annual.csv
+*_MSFO_quarterly.csv
+*_RSBU_annual.csv
+*_RSBU_quarterly.csv
 
 # Python cache files
 __pycache__/
