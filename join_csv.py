@@ -41,6 +41,28 @@ def clean_value(value):
     return value
 
 
+def rename_metrics(df):
+    """Rename specific metrics in the DataFrame index"""
+    rename_map = {
+        "Операционный денежный поток, млрд руб": "OCF, млрд руб",
+        "Дивиденды/прибыль, %": "DPR, %",
+        "Чистые активы, млрд руб": "Капитал, млрд руб",
+        "Активы банка, млрд руб": "Активы, млрд руб",
+        "Дивиденд, руб/акцию": "DPS, руб",
+        "Див доход, ао, %": "DY, %",
+        "Див доход, ап, %": "P_DY, %",
+        "Доходность FCF, %": "FCF/P, %",
+        "Долг/EBITDA": "ND/EBITDA",
+        "P/BV": "P/B"
+    }
+    
+    # Create a new index with renamed metrics
+    new_index = [rename_map.get(idx, idx) for idx in df.index]
+    df.index = new_index
+    
+    return df
+
+
 def download_data(ticker):
     """Download annual and quarterly data for a given ticker"""
     annual_url = f"https://smart-lab.ru/q/{ticker}/f/y/MSFO/download/"
@@ -154,6 +176,9 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     # Apply the cleaning function to each cell in the DataFrame
     for col in result_df.columns:
         result_df[col] = result_df[col].apply(clean_value)
+    
+    # Rename specific metrics
+    result_df = rename_metrics(result_df)
     
     # Save the result to a TSV file
     result_df.to_csv(output_path, sep='\t')
