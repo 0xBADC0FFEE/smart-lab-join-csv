@@ -23,6 +23,13 @@ def get_year_from_quarter(quarter_col):
     return None
 
 
+def remove_spaces(value):
+    """Remove spaces from a value, if it's a string"""
+    if isinstance(value, str):
+        return value.replace(" ", "")
+    return value
+
+
 def join_csv_files(annual_path, quarterly_path, output_path):
     """Join annual and quarterly CSV files according to requirements"""
     # Read CSV files
@@ -103,6 +110,11 @@ def join_csv_files(annual_path, quarterly_path, output_path):
         elif col in quarterly_df.columns:
             # This is a quarter column from quarterly data
             result_df[col] = quarterly_df[col]
+    
+    # Remove spaces from values but keep headers untouched
+    # Apply the space removal function to each cell in the DataFrame
+    for col in result_df.columns:
+        result_df[col] = result_df[col].apply(remove_spaces)
     
     # Save the result to a TSV file
     result_df.to_csv(output_path, sep='\t')
