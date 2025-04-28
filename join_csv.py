@@ -237,22 +237,32 @@ def cleanup_temp_files(annual_path, quarterly_path):
 def main():
     parser = argparse.ArgumentParser(description='Join annual and quarterly financial metrics for a ticker.')
     parser.add_argument('ticker', help='Ticker symbol to download data for (e.g., MGKL)')
-    parser.add_argument('--standard', choices=['МСФО', 'РСБУ'], default='МСФО',
-                      help='Reporting standard to use: МСФО (IFRS) or РСБУ (RAS). Default is МСФО.')
+    parser.add_argument('--standard', choices=['МСФО', 'РСБУ', 'MSFO', 'RSBU'], default='МСФО',
+                      help='Reporting standard to use: МСФО/MSFO (IFRS) or РСБУ/RSBU (RAS). Default is МСФО.')
     
     args = parser.parse_args()
     
-    # Map Russian standard names to API parameter values
+    # Map both Cyrillic and Latin standard names to API parameter values
     standard_map = {
         'МСФО': 'MSFO',
-        'РСБУ': 'RSBU'
+        'РСБУ': 'RSBU',
+        'MSFO': 'MSFO',
+        'RSBU': 'RSBU'
+    }
+    
+    # Display standard map for output filename
+    display_standard_map = {
+        'МСФО': 'МСФО',
+        'РСБУ': 'РСБУ',
+        'MSFO': 'МСФО',
+        'RSBU': 'РСБУ'
     }
     
     # Get the API parameter value for the selected standard
     standard = standard_map[args.standard]
     
-    # Use ticker and standard for output filename
-    output_path = f"{args.ticker}_{args.standard}.tsv"
+    # Use ticker and standard for output filename (use display format for the filename)
+    output_path = f"{args.ticker}_{display_standard_map[args.standard]}.tsv"
     
     try:
         # Download data from the internet
