@@ -1,0 +1,22 @@
+# Virtual environment
+venv/
+
+# Generated output files
+*.tsv
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+
+# OS specific files
+.DS_Store
+Thumbs.db 
