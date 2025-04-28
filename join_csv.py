@@ -173,38 +173,27 @@ def cleanup_temp_files(annual_path, quarterly_path):
 
 def main():
     parser = argparse.ArgumentParser(description='Join annual and quarterly financial metrics for a ticker.')
-    
-    # Define mutually exclusive group for input source
-    input_group = parser.add_mutually_exclusive_group(required=True)
-    input_group.add_argument('--ticker', help='Ticker symbol to download data for (e.g., MGKL)')
-    input_group.add_argument('--files', nargs=2, metavar=('ANNUAL_CSV', 'QUARTERLY_CSV'),
-                           help='Paths to local annual and quarterly CSV files')
-    
-    parser.add_argument('output', help='Path to the output TSV file')
+    parser.add_argument('ticker', help='Ticker symbol to download data for (e.g., MGKL)')
     
     args = parser.parse_args()
     
+    # Use ticker as output filename
+    output_path = f"{args.ticker}.tsv"
+    
     try:
-        if args.ticker:
-            # Download data from the internet
-            annual_path, quarterly_path = download_data(args.ticker)
-            temp_files_created = True
-        else:
-            # Use local files
-            annual_path, quarterly_path = args.files
-            temp_files_created = False
+        # Download data from the internet
+        annual_path, quarterly_path = download_data(args.ticker)
         
         # Process the files
-        join_csv_files(annual_path, quarterly_path, args.output)
+        join_csv_files(annual_path, quarterly_path, output_path)
         
-        # Clean up temporary files if they were created
-        if temp_files_created:
-            cleanup_temp_files(annual_path, quarterly_path)
+        # Clean up temporary files
+        cleanup_temp_files(annual_path, quarterly_path)
             
     except Exception as e:
         print(f"Error: {e}")
         # Clean up any temporary files in case of error
-        if 'annual_path' in locals() and 'quarterly_path' in locals() and temp_files_created:
+        if 'annual_path' in locals() and 'quarterly_path' in locals():
             cleanup_temp_files(annual_path, quarterly_path)
         return 1
     
