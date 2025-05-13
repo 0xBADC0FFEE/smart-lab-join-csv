@@ -4,7 +4,7 @@ import argparse
 import re
 import os
 import requests
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 
 
@@ -18,12 +18,81 @@ def is_quarter_column(col_name):
     return bool(re.match(r'^20\d{2}Q[1-4]$', str(col_name)))
 
 
-def get_year_from_quarter(quarter_col):
-    """Extract year from a quarter column name (e.g., '2022Q4' -> '2022')"""
-    match = re.match(r'^(20\d{2})Q[1-4]$', quarter_col)
+def is_half_year_column(col_name):
+    """Check if column name is a half-year (like '2022H1')"""
+    return bool(re.match(r'^20\d{2}H[1-2]$', str(col_name)))
+
+
+def get_year_from_period(period_col):
+    """Extract year from a period column name (e.g., '2022Q4' -> '2022')"""
+    match = re.match(r'^(20\d{2})[QH][1-4]$', period_col)
     if match:
         return match.group(1)
     return None
+
+
+def get_period_value(period_col):
+    """
+    Get a numeric value for sorting period columns chronologically
+    For example: 
+    - 2022Q1 -> (2022, 0.25)
+    - 2022Q2 -> (2022, 0.5)
+    - 2022H1 -> (2022, 0.55)
+    - 2022Q3 -> (2022, 0.75)
+    - 2022Q4 -> (2022, 0.9)
+    - 2022H2 -> (2022, 0.95)
+    - 2022 -> (2022, 1.0)
+    """
+    if is_year_column(period_col):
+        return (int(period_col), 1.0)
+    
+    year_match = re.match(r'^(20\d{2})([QH])([1-4])$', period_col)
+    if year_match:
+        year = int(year_match.group(1))
+        period_type = year_match.group(2)  # Q or H
+        period_num = int(year_match.group(3))
+        
+        if period_type == 'Q':
+            # Make Q4 come before the year
+            if period_num == 4:
+                return (year, 0.9)
+            else:
+                return (year, period_num * 0.25)
+        elif period_type == 'H':
+            if period_num == 1:
+                return (year, 0.55)  # H1 between Q2 and Q3
+            else:
+                return (year, 0.95)  # H2 between Q4 and annual
+    
+    # Handle special case for LTM by giving it a very high value
+    if period_col == 'LTM':
+        return (9999, 1.0)
+        
+    return (0, 0)  # Default for unrecognized formats
+
+
+def detect_and_convert_half_years(columns):
+    """
+    Detect when only Q2 and Q4 are present for a year and convert them to H1 and H2
+    Returns a mapping of original column names to new column names
+    """
+    # Group columns by year
+    year_quarters = defaultdict(list)
+    for col in columns:
+        if is_quarter_column(col):
+            year = get_year_from_period(col)
+            quarter = col[-1]
+            year_quarters[year].append(quarter)
+    
+    # Create mapping for columns to rename
+    col_mapping = {}
+    for year, quarters in year_quarters.items():
+        # If only Q2 and Q4 exist for this year, rename them to H1 and H2
+        if sorted(quarters) == ['2', '4'] and len(quarters) == 2:
+            col_mapping[f"{year}Q2"] = f"{year}H1"
+            col_mapping[f"{year}Q4"] = f"{year}H2"
+    
+    return col_mapping
 
 
 def clean_value(value):
@@ -132,6 +201,13 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     annual_df = pd.read_csv(annual_path, sep=';', index_col=0)
     quarterly_df = pd.read_csv(quarterly_path, sep=';', index_col=0)
     
+    # Detect half-years (when only Q2 and Q4 are present for a year)
+    col_mapping = detect_and_convert_half_years(quarterly_df.columns)
+    
+    # Rename columns in quarterly_df if needed
+    if col_mapping:
+        quarterly_df = quarterly_df.rename(columns=col_mapping)
+    
     # Preserve the order of metrics from both files
     all_metrics_ordered = OrderedDict()
     
@@ -147,61 +223,17 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     # Create a new empty DataFrame with the combined metrics in order
     result_df = pd.DataFrame(index=list(all_metrics_ordered.keys()))
     
-    # Group columns by year and quarter
-    year_columns = {}  # year -> column name
-    quarter_columns = {}  # (year, quarter) -> column name
-    quarter_years = set()  # Set to track years found in quarterly data
+    # Get all columns from both dataframes
+    all_columns = list(annual_df.columns) + list(quarterly_df.columns)
     
-    # Get all year columns from annual data
-    for col in annual_df.columns:
-        if is_year_column(col):
-            year_columns[col] = col
+    # Create a dictionary of period values for sorting
+    period_values = {col: get_period_value(col) for col in all_columns}
     
-    # Get all quarter columns from quarterly data
-    for col in quarterly_df.columns:
-        if is_quarter_column(col):
-            year = get_year_from_quarter(col)
-            quarter = col[-1]  # Get the quarter number (1-4)
-            quarter_columns[(year, quarter)] = col
-            quarter_years.add(year)  # Add to set of years found in quarterly data
+    # Sort columns chronologically
+    ordered_columns = sorted(all_columns, key=lambda col: period_values[col])
     
-    # Create a comprehensive set of all years that appear in either annual or quarterly data
-    all_years = set(year_columns.keys()) | quarter_years
-    
-    # Sort years to ensure chronological order
-    sorted_years = sorted(all_years)
-    
-    # Create ordered list of columns for the result DataFrame
-    ordered_columns = []
-    
-    # Add quarters and corresponding years
-    for year in sorted_years:
-        # Add Q1-Q3 for this year if they exist
-        for quarter in ['1', '2', '3']:
-            if (year, quarter) in quarter_columns:
-                ordered_columns.append(quarter_columns[(year, quarter)])
-        
-        # Only add Q4 if it exists AND the corresponding year is not in annual data
-        # Otherwise, we'll use the annual year data
-        if (year, '4') in quarter_columns:
-            # If quarterly.csv contains only Q4 quarter of a year and annual.csv has the same year,
-            # skip the Q4 quarter and use only the year column from annual.csv
-            
-            # Check if this year has only Q4 quarter in quarterly data
-            has_other_quarters = any((year, q) in quarter_columns for q in ['1', '2', '3'])
-            
-            # If there are no other quarters for this year and the year exists in annual data,
-            # skip the Q4 column. Otherwise add it.
-            if has_other_quarters or year not in year_columns:
-                ordered_columns.append(quarter_columns[(year, '4')])
-        
-        # Add the year column after Q4 if it exists in annual data
-        if year in year_columns:
-            ordered_columns.append(year)
-    
-    # Add LTM column at the end
-    if 'LTM' in annual_df.columns:
-        ordered_columns.append('LTM')
+    # Remove duplicates while preserving order
+    ordered_columns = list(OrderedDict.fromkeys(ordered_columns))
     
     # Fill in the data from both DataFrames
     for col in ordered_columns:
@@ -227,6 +259,55 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     # Save the result to a TSV file
     result_df.to_csv(output_path, sep='\t')
     print(f"Joined data saved to {output_path}")
+    
+    return result_df
+
+
+def combine_standards(ticker, output_path):
+    """
+    Combine MSFO and RSBU data into a single TSV file
+    with MSFO on top, RSBU on bottom, and 10 empty lines in between
+    """
+    # Download and process MSFO data
+    print("Processing MSFO data...")
+    msfo_annual_path, msfo_quarterly_path = download_data(ticker, "MSFO")
+    msfo_df = join_csv_files(msfo_annual_path, msfo_quarterly_path, f"{ticker}_МСФО.tsv")
+    
+    # Download and process RSBU data
+    print("Processing RSBU data...")
+    rsbu_annual_path, rsbu_quarterly_path = download_data(ticker, "RSBU")
+    rsbu_df = join_csv_files(rsbu_annual_path, rsbu_quarterly_path, f"{ticker}_РСБУ.tsv")
+    
+    # Combine columns from both standards, ensuring chronological order
+    all_columns = list(msfo_df.columns) + list(rsbu_df.columns)
+    period_values = {col: get_period_value(col) for col in all_columns}
+    ordered_columns = sorted(all_columns, key=lambda col: period_values[col])
+    ordered_columns = list(OrderedDict.fromkeys(ordered_columns))
+    
+    # Create empty dataframes with the combined columns
+    msfo_combined = pd.DataFrame(index=msfo_df.index, columns=ordered_columns)
+    rsbu_combined = pd.DataFrame(index=rsbu_df.index, columns=ordered_columns)
+    
+    # Fill in the data
+    for col in ordered_columns:
+        if col in msfo_df.columns:
+            msfo_combined[col] = msfo_df[col]
+        if col in rsbu_df.columns:
+            rsbu_combined[col] = rsbu_df[col]
+    
+    # Create 10 empty lines
+    empty_rows = pd.DataFrame(index=[f"empty_{i}" for i in range(10)], columns=ordered_columns)
+    
+    # Combine the dataframes (MSFO, empty lines, RSBU)
+    combined_df = pd.concat([msfo_combined, empty_rows, rsbu_combined])
+    
+    # Save the combined result
+    combined_df.to_csv(output_path, sep='\t')
+    print(f"Combined data (MSFO + RSBU) saved to {output_path}")
+    
+    # Clean up temporary files
+    cleanup_temp_files(msfo_annual_path, msfo_quarterly_path)
+    cleanup_temp_files(rsbu_annual_path, rsbu_quarterly_path)
 
 
 def cleanup_temp_files(annual_path, quarterly_path):
@@ -243,8 +324,8 @@ def cleanup_temp_files(annual_path, quarterly_path):
 def main():
     parser = argparse.ArgumentParser(description='Join annual and quarterly financial metrics for a ticker.')
     parser.add_argument('ticker', help='Ticker symbol to download data for (e.g., MGKL)')
-    parser.add_argument('--standard', choices=['МСФО', 'РСБУ', 'MSFO', 'RSBU'], default='МСФО',
-                      help='Reporting standard to use: МСФО/MSFO (IFRS) or РСБУ/RSBU (RAS). Default is МСФО.')
+    parser.add_argument('--standard', choices=['МСФО', 'РСБУ', 'MSFO', 'RSBU', 'BOTH', 'ОБА'], default='BOTH',
+                      help='Reporting standard to use: МСФО/MSFO (IFRS), РСБУ/RSBU (RAS), or BOTH/ОБА. Default is BOTH.')
     
     args = parser.parse_args()
     
@@ -253,7 +334,9 @@ def main():
         'МСФО': 'MSFO',
         'РСБУ': 'RSBU',
         'MSFO': 'MSFO',
-        'RSBU': 'RSBU'
+        'RSBU': 'RSBU',
+        'BOTH': 'BOTH',
+        'ОБА': 'BOTH'
     }
     
     # Display standard map for output filename
@@ -261,29 +344,34 @@ def main():
         'МСФО': 'МСФО',
         'РСБУ': 'РСБУ',
         'MSFO': 'МСФО',
-        'RSBU': 'РСБУ'
+        'RSBU': 'РСБУ',
+        'BOTH': 'COMBINED',
+        'ОБА': 'COMBINED'
     }
     
     # Get the API parameter value for the selected standard
     standard = standard_map[args.standard]
     
-    # Use ticker and standard for output filename (use display format for the filename)
-    output_path = f"{args.ticker}_{display_standard_map[args.standard]}.tsv"
+    # Use ticker and standard for output filename
+    if standard == 'BOTH':
+        output_path = f"{args.ticker}_COMBINED.tsv"
+    else:
+        output_path = f"{args.ticker}_{display_standard_map[args.standard]}.tsv"
     
     try:
-        # Download data from the internet
-        annual_path, quarterly_path = download_data(args.ticker, standard)
-        
-        # Process the files
-        join_csv_files(annual_path, quarterly_path, output_path)
-        
-        # Clean up temporary files
-        cleanup_temp_files(annual_path, quarterly_path)
+        if standard == 'BOTH':
+            # Combine both MSFO and RSBU data
+            combine_standards(args.ticker, output_path)
+        else:
+            # Process single standard
+            annual_path, quarterly_path = download_data(args.ticker, standard)
+            join_csv_files(annual_path, quarterly_path, output_path)
+            cleanup_temp_files(annual_path, quarterly_path)
             
     except Exception as e:
         print(f"Error: {e}")
         # Clean up any temporary files in case of error
-        if 'annual_path' in locals() and 'quarterly_path' in locals():
+        if standard != 'BOTH' and 'annual_path' in locals() and 'quarterly_path' in locals():
             cleanup_temp_files(annual_path, quarterly_path)
         return 1
     

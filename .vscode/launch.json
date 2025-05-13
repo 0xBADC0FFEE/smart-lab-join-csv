@@ -2,6 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Combined (BOTH)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/join_csv.py",
+            "args": ["${input:ticker}"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
             "name": "МСФО",
             "type": "python",
             "request": "launch",
@@ -41,7 +50,7 @@
             "description": "Choose reporting standard",
             "default": "МСФО",
             "type": "pickString",
-            "options": ["МСФО", "РСБУ"]
+            "options": ["МСФО", "РСБУ", "BOTH"]
         }
     ]
 } 
