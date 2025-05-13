@@ -150,6 +150,7 @@ def join_csv_files(annual_path, quarterly_path, output_path):
     # Group columns by year and quarter
     year_columns = {}  # year -> column name
     quarter_columns = {}  # (year, quarter) -> column name
+    quarter_years = set()  # Set to track years found in quarterly data
     
     # Get all year columns from annual data
     for col in annual_df.columns:
@@ -162,9 +163,13 @@ def join_csv_files(annual_path, quarterly_path, output_path):
             year = get_year_from_quarter(col)
             quarter = col[-1]  # Get the quarter number (1-4)
             quarter_columns[(year, quarter)] = col
+            quarter_years.add(year)  # Add to set of years found in quarterly data
+    
+    # Create a comprehensive set of all years that appear in either annual or quarterly data
+    all_years = set(year_columns.keys()) | quarter_years
     
     # Sort years to ensure chronological order
-    sorted_years = sorted(year_columns.keys())
+    sorted_years = sorted(all_years)
     
     # Create ordered list of columns for the result DataFrame
     ordered_columns = []
@@ -190,7 +195,7 @@ def join_csv_files(annual_path, quarterly_path, output_path):
             if has_other_quarters or year not in year_columns:
                 ordered_columns.append(quarter_columns[(year, '4')])
         
-        # Add the year column after Q4
+        # Add the year column after Q4 if it exists in annual data
         if year in year_columns:
             ordered_columns.append(year)
     
