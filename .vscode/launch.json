@@ -1,0 +1,47 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "МСФО",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/join_csv.py",
+            "args": ["${input:ticker}", "--standard", "МСФО"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "РСБУ",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/join_csv.py",
+            "args": ["${input:ticker}", "--standard", "РСБУ"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Custom",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/join_csv.py",
+            "args": ["${input:ticker}", "--standard", "${input:standard}"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "ticker",
+            "description": "Enter ticker symbol",
+            "default": "SBER",
+            "type": "promptString"
+        },
+        {
+            "id": "standard",
+            "description": "Choose reporting standard",
+            "default": "МСФО",
+            "type": "pickString",
+            "options": ["МСФО", "РСБУ"]
+        }
+    ]
+} 
