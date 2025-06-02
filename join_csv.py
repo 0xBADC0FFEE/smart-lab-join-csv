@@ -195,11 +195,43 @@ def download_data(ticker, standard="MSFO"):
     return annual_path, quarterly_path
 
 
+def has_only_q4_data(columns, year):
+    """
+    Check if a given year has only Q4 data in quarterly data
+    
+    Args:
+        columns (list): List of column names
+        year (str): Year to check (e.g., '2022')
+    
+    Returns:
+        bool: True if only Q4 exists for the given year, False otherwise
+    """
+    quarters_for_year = [col for col in columns if col.startswith(year + 'Q')]
+    return len(quarters_for_year) == 1 and quarters_for_year[0] == f"{year}Q4"
+
+
 def join_csv_files(annual_path, quarterly_path, output_path):
     """Join annual and quarterly CSV files according to requirements"""
     # Read CSV files
     annual_df = pd.read_csv(annual_path, sep=';', index_col=0)
     quarterly_df = pd.read_csv(quarterly_path, sep=';', index_col=0)
+    
+    # Filter out Q4-only years from quarterly data
+    years_in_quarterly = set()
+    for col in quarterly_df.columns:
+        if is_quarter_column(col):
+            year = get_year_from_period(col)
+            if year:
+                years_in_quarterly.add(year)
+    
+    columns_to_drop = []
+    for year in years_in_quarterly:
+        if has_only_q4_data(quarterly_df.columns, year) and year in annual_df.columns:
+            # If there's only Q4 data for a year that's also in annual data, drop the Q4 column
+            columns_to_drop.append(f"{year}Q4")
+    
+    if columns_to_drop:
+        quarterly_df = quarterly_df.drop(columns=columns_to_drop)
     
     # Detect half-years (when only Q2 and Q4 are present for a year)
     col_mapping = detect_and_convert_half_years(quarterly_df.columns)
